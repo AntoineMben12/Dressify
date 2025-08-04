@@ -1,0 +1,22 @@
+{
+  "name": "dressify-fullstack",
+  "version": "1.0.0",
+  "description": "Dressify - Full-Stack E-commerce Dashboard",
+  "main": "test-app.js",
+  "scripts": {
+    "test": "node test-app.js",
+    "start-backend": "cd backend && npm start",
+    "start-frontend": "cd frontend && npm run dev",
+    "dev-backend": "cd backend && npm run dev",
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
+  "keywords": ["ecommerce", "react", "nodejs", "mongodb", "fullstack"],
+  "author": "Dressify Team",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

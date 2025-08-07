@@ -156,7 +156,7 @@ function Product() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/api/products');
+      const response = await fetch('https://dressifybackend.onrender.com/api/products');
       if (response.ok) {
         const data = await response.json();
         setProducts(data.products || []);
@@ -273,7 +273,7 @@ function Product() {
       }
 
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/products', {
+      const response = await fetch('https://dressifybackend.onrender.com/api/products', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

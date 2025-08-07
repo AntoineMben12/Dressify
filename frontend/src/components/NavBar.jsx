@@ -130,7 +130,7 @@ const NavBar = () => {
 
   const fetchUserProfile = async (token) => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/me', {
+      const response = await fetch('https://dressifybackend.onrender.com/auth/me', {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.ok) {

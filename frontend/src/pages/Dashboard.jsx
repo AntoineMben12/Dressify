@@ -44,7 +44,7 @@ function Dashboard() {
   const contentRef = useRef(null);
 
   // API base URL
-  const API_BASE = `http://localhost:${import.meta.env.VITE_API_PORT || 5000}/api`;
+  const API_BASE = `https://dressifybackend.onrender.com/api`;
 
   // Check authentication on component mount
   useEffect(() => {

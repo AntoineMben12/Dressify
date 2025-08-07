@@ -138,7 +138,11 @@ router.post('/', protect, [
     .withMessage('Content must be at least 10 characters'),
   body('category')
     .isIn(['Fashion Trends', 'Style Tips', 'Sustainability', 'Brand Stories', 'Seasonal'])
-    .withMessage('Invalid category')
+    .withMessage('Invalid category'),
+  body('image')
+    .optional()
+    .isURL()
+    .withMessage('Image must be a valid URL')
 ], async (req, res) => {
   try {
     // Check for validation errors
@@ -153,12 +157,16 @@ router.post('/', protect, [
 
     const { title, content, category, image, tags, status = 'draft' } = req.body;
 
+    // Generate excerpt from content if not provided
+    const excerpt = content.length > 150 ? content.substring(0, 150) + '...' : content;
+
     const post = await Post.create({
       title,
       content,
+      excerpt,
       category,
-      image,
-      tags: tags ? tags.split(',').map(tag => tag.trim()) : [],
+      image: image || 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=600&h=400&fit=crop&crop=center',
+      tags: tags ? tags.split(',').map(tag => tag.trim()).filter(Boolean) : [],
       status,
       author: req.user.id
     });
@@ -172,6 +180,21 @@ router.post('/', protect, [
     });
   } catch (error) {
     console.error('Create post error:', error);
+    
+    // Handle specific mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => ({
+        field: err.path,
+        message: err.message
+      }));
+      
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationErrors
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Server error creating post'

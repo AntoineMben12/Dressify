@@ -3,7 +3,7 @@ const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const Product = require('../models/Product');
 const Favorite = require('../models/Favorite');
-const { protect, generateToken } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 const mongoose = require('mongoose');
 
 const router = Router();
@@ -66,7 +66,7 @@ router.get('/', async (req, res) => {
     sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
 
     const products = await Product.find(query)
-      .populate('seller', 'name avatar')
+      .populate('author', 'name avatar')
       .sort(sort)
       .limit(limit * 1)
       .skip((page - 1) * limit);
@@ -125,7 +125,7 @@ router.get('/my-products', protect, async (req, res) => {
 
     const { page = 1, limit = 10, status } = req.query;
     
-    const query = { seller: req.user.id };
+    const query = { author: req.user.id };
     
     if (status && status !== 'all') {
       query.status = status;
@@ -184,7 +184,7 @@ router.get('/:id', async (req, res) => {
       });
     }
 
-    const product = await Product.findById(req.params.id).populate('seller', 'name avatar');
+    const product = await Product.findById(req.params.id).populate('author', 'name avatar');
     
     if (!product) {
       return res.status(404).json({
@@ -240,7 +240,7 @@ router.post('/', protect, [
     .isInt({ min: 0 })
     .withMessage('Stock must be a non-negative integer'),
   body('category')
-    .isIn(['Clothing', 'Accessories', 'Shoes', 'Bags', 'Jewelry', 'Beauty'])
+    .isIn(['Clothing', 'Shoes', 'Accessories', 'Bags', 'Jewelry', 'Electronics', 'Home', 'Sports', 'Beauty', 'Books', 'Other'])
     .withMessage('Invalid category')
 ], async (req, res) => {
   try {
@@ -259,6 +259,7 @@ router.post('/', protect, [
       description, 
       price, 
       category, 
+      image,
       images, 
       stock, 
       specifications,
@@ -289,15 +290,16 @@ router.post('/', protect, [
       description,
       price: parsedPrice,
       category,
+      image: image || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=400&fit=crop',
       images: images || [],
       stock: parsedStock,
       specifications: specifications || {},
       tags: tags ? tags.split(',').map(tag => tag.trim()).filter(Boolean) : [],
       status,
-      seller: req.user.id
+      author: req.user.id
     });
 
-    await product.populate('seller', 'name avatar');
+    await product.populate('author', 'name avatar');
 
     res.status(201).json({
       success: true,
@@ -337,7 +339,7 @@ router.put('/:id', protect, [
     .withMessage('Stock must be a non-negative integer'),
   body('category')
     .optional()
-    .isIn(['Clothing', 'Accessories', 'Shoes', 'Bags', 'Jewelry', 'Beauty'])
+    .isIn(['Clothing', 'Shoes', 'Accessories', 'Bags', 'Jewelry', 'Electronics', 'Home', 'Sports', 'Beauty', 'Books', 'Other'])
     .withMessage('Invalid category')
 ], async (req, res) => {
   try {
@@ -351,14 +353,6 @@ router.put('/:id', protect, [
       });
     }
 
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid product ID format'
-      });
-    }
-
     const product = await Product.findById(req.params.id);
 
     if (!product) {
@@ -369,7 +363,7 @@ router.put('/:id', protect, [
     }
 
     // Check if user owns the product
-    if (product.seller.toString() !== req.user.id) {
+    if (product.author.toString() !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to update this product'
@@ -381,6 +375,7 @@ router.put('/:id', protect, [
       description, 
       price, 
       category, 
+      image,
       images, 
       stock, 
       specifications,
@@ -388,19 +383,20 @@ router.put('/:id', protect, [
       status
     } = req.body;
 
-    // Update fields
+    // Update fields if provided
     if (name) product.name = name;
     if (description) product.description = description;
-    if (price !== undefined) product.price = parseFloat(price);
+    if (price) product.price = parseFloat(price);
     if (category) product.category = category;
+    if (image) product.image = image;
     if (images) product.images = images;
     if (stock !== undefined) product.stock = parseInt(stock);
     if (specifications) product.specifications = specifications;
-    if (tags) product.tags = tags.split(',').map(tag => tag.trim());
+    if (tags) product.tags = tags.split(',').map(tag => tag.trim()).filter(Boolean);
     if (status) product.status = status;
 
     await product.save();
-    await product.populate('seller', 'name avatar');
+    await product.populate('author', 'name avatar');
 
     res.json({
       success: true,
@@ -421,14 +417,6 @@ router.put('/:id', protect, [
 // @access  Private
 router.delete('/:id', protect, async (req, res) => {
   try {
-    // Validate ObjectId
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid product ID format'
-      });
-    }
-
     const product = await Product.findById(req.params.id);
 
     if (!product) {
@@ -439,7 +427,7 @@ router.delete('/:id', protect, async (req, res) => {
     }
 
     // Check if user owns the product
-    if (product.seller.toString() !== req.user.id) {
+    if (product.author.toString() !== req.user.id) {
       return res.status(403).json({
         success: false,
         message: 'Not authorized to delete this product'
@@ -473,7 +461,7 @@ router.get('/dashboard/stats', protect, async (req, res) => {
       });
     }
 
-    const sellerId = mongoose.Types.ObjectId(req.user.id);
+    const authorId = mongoose.Types.ObjectId(req.user.id);
 
     const [
       totalProducts,
@@ -481,14 +469,14 @@ router.get('/dashboard/stats', protect, async (req, res) => {
       totalSales,
       totalRevenue
     ] = await Promise.all([
-      Product.countDocuments({ seller: sellerId }),
-      Product.countDocuments({ seller: sellerId, status: 'active' }),
+      Product.countDocuments({ author: authorId }),
+      Product.countDocuments({ author: authorId, status: 'active' }),
       Product.aggregate([
-        { $match: { seller: sellerId } },
+        { $match: { author: authorId } },
         { $group: { _id: null, total: { $sum: { $ifNull: ['$sales', 0] } } } }
       ]),
       Product.aggregate([
-        { $match: { seller: sellerId } },
+        { $match: { author: authorId } },
         { $group: { _id: null, total: { $sum: { 
           $multiply: [
             { $ifNull: ['$sales', 0] }, 
@@ -512,6 +500,61 @@ router.get('/dashboard/stats', protect, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error getting dashboard stats'
+    });
+  }
+});
+
+// @desc    Get user product stats
+// @route   GET /api/products/stats
+// @access  Private
+router.get('/stats', protect, async (req, res) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    const authorId = mongoose.Types.ObjectId(req.user.id);
+
+    const [
+      totalProducts,
+      activeProducts,
+      totalSales,
+      totalRevenue
+    ] = await Promise.all([
+      Product.countDocuments({ author: authorId }),
+      Product.countDocuments({ author: authorId, status: 'active' }),
+      Product.aggregate([
+        { $match: { author: authorId } },
+        { $group: { _id: null, total: { $sum: { $ifNull: ['$sales', 0] } } } }
+      ]),
+      Product.aggregate([
+        { $match: { author: authorId } },
+        { $group: { _id: null, total: { $sum: { 
+          $multiply: [
+            { $ifNull: ['$sales', 0] }, 
+            { $ifNull: ['$price', 0] }
+          ] 
+        } } } }
+      ])
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        totalProducts,
+        activeProducts,
+        totalSales: totalSales[0]?.total || 0,
+        totalRevenue: totalRevenue[0]?.total || 0
+      }
+    });
+  } catch (error) {
+    console.error('Get product stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error getting product stats'
     });
   }
 });

@@ -15,7 +15,7 @@ function Login() {
   const formRef = useRef(null);
   const titleRef = useRef(null);
 
-  const API_BASE = `http://localhost:${import.meta.env.VITE_API_PORT || 5000}/api`;
+  const API_BASE = `https://dressifybackend.onrender.com/api`;
 
   // Test backend connection
   const testConnection = async () => {

@@ -15,7 +15,7 @@ function Login() {
   const formRef = useRef(null);
   const titleRef = useRef(null);
 
-  const API_BASE = `https://dressifybackend.onrender.com/api`;
+  const API_BASE = `https://dressifybackend.onrender.com/api/auth/register`;
 
   // Test backend connection
   const testConnection = async () => {
